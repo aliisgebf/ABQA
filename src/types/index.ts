@@ -76,29 +76,54 @@ export interface Product {
   variants?: ProductVariant[];
 }
 
+export interface PromotionOffer {
+  id: string;
+  title_ar: string;
+  title_en: string;
+  subtitle_ar?: string;
+  subtitle_en?: string;
+  discount_tag?: string;
+  is_active: boolean;
+  banner_bg_color?: string;
+  link_url?: string;
+  created_at: string;
+}
+
 export interface StoreSettings {
   store_name_ar: string;
   store_name_en: string;
   tagline_ar: string;
   tagline_en: string;
   whatsapp_number: string;
-  default_currency: string;
+  default_currency: 'SAR' | 'YER';
   default_language: 'ar' | 'en';
   inventory_tracking_enabled: boolean;
   contact_email: string;
   contact_phone: string;
   address_ar: string;
   address_en: string;
+  instagram_url?: string;
+  tiktok_url?: string;
+  facebook_url?: string;
+  offers?: PromotionOffer[];
 }
 
 export interface CartItem {
   productId: string;
   variantId?: string;
   quantity: number;
-  // Snapshot for rendering in local storage
   product: Product;
   selectedVariant?: ProductVariant;
   storedPrice: number;
+}
+
+export interface CustomerDeliveryDetails {
+  fullName: string;
+  phone: string;
+  cityAndAddress: string;
+  googleMapsUrl: string;
+  paymentMethod: 'cod' | 'bank_transfer';
+  notes?: string;
 }
 
 export interface VerifiedCartItem {

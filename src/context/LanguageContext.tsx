@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type Language = 'ar' | 'en';
+export type Currency = 'SAR' | 'YER';
 
 interface Translations {
   [key: string]: {
@@ -38,7 +39,7 @@ export const DICTIONARY: Translations = {
   sortPriceDesc: { ar: 'السعر: من الأعلى للأقل', en: 'Price: High to Low' },
   sortFeatured: { ar: 'المميزة والمختارة', en: 'Featured Selection' },
   resetFilters: { ar: 'إعادة ضبط الفلاتر', en: 'Reset Filters' },
-  noProductsFound: { ar: 'لم يتم العثور على منتجات مطابقة للبحث.', en: 'No fragrances matched your selection.' },
+  noProductsFound: { ar: 'لا توجد منتجات معروضة حالياً.', en: 'No fragrances available at this moment.' },
   resultsCount: { ar: 'عنصر متاح', en: 'items available' },
 
   // Product Card & PDP
@@ -46,6 +47,7 @@ export const DICTIONARY: Translations = {
   addedToCart: { ar: 'تمت الإضافة', en: 'Added' },
   viewDetails: { ar: 'تفاصيل العطر', en: 'View Details' },
   sarCurrency: { ar: 'ر.س', en: 'SAR' },
+  yerCurrency: { ar: 'ر.ي', en: 'YER' },
   brandLabel: { ar: 'الدار المصنعة', en: 'Fragrance House' },
   skuLabel: { ar: 'رمز المنتج SKU', en: 'SKU' },
   fragranceNotes: { ar: 'الهرم العطري', en: 'Olfactive Pyramid' },
@@ -62,35 +64,42 @@ export const DICTIONARY: Translations = {
   cartEmptySubtitle: { ar: 'تصفح تشكيلتنا الفاخرة وأضف نفحاتك المفضلة', en: 'Browse our collection and curate your signature scent' },
   continueShopping: { ar: 'متابعة التسوق', en: 'Continue Shopping' },
   subtotal: { ar: 'المجموع الفرعي', en: 'Subtotal' },
-  total: { ar: 'الإجمالي المقدر', en: 'Estimated Total' },
+  total: { ar: 'الإجمالي المطلوب', en: 'Total Amount' },
   checkoutViaWhatsApp: { ar: 'إتمام الطلب عبر واتساب', en: 'Order via WhatsApp' },
   whatsAppDisclaimer: { ar: 'يتم إرسال الطلب مباشرة عبر تطبيق واتساب دون الحاجة لبطاقة بنكية أو إنشاء حساب.', en: 'Your selection is sent directly via WhatsApp. No card required and no order data is stored on servers.' },
   verifyingPrices: { ar: 'جاري التحقق من أحدث الأسعار مع المتجر...', en: 'Verifying live prices and availability...' },
   priceDiscrepancyNotice: { ar: 'تنبيه: تم تحديث أسعار بعض المنتجات حسب أحدث قوائم المتجر، يرجى مراجعتها أدناه:', en: 'Notice: Some product prices have been updated to live store rates. Please review below:' },
   
-  // Checkout Modal voluntary fields
-  voluntaryDetailsTitle: { ar: 'بيانات الاستلام (اختيارية)', en: 'Delivery Details (Optional)' },
-  customerName: { ar: 'الاسم الكريم', en: 'Full Name' },
-  customerPhone: { ar: 'رقم الهاتف للتواصل', en: 'Contact Phone' },
-  deliveryCity: { ar: 'المدينة / منطقة التوصيل', en: 'City / Delivery Area' },
-  customerNotes: { ar: 'ملاحظات إضافية أو إهداء', en: 'Special Requests / Gifting' },
-  sendOrderWhatsApp: { ar: 'إرسال الرسالة إلى واتساب عَبَق', en: 'Send to ABAQ Concierge on WhatsApp' },
+  // Checkout Modal mandatory fields
+  mandatoryDeliveryTitle: { ar: 'بيانات الاستلام (إلزامية لتأكيد الطلب)', en: 'Delivery & Contact Details (Required)' },
+  fullNameRequired: { ar: 'الاسم بالكامل *', en: 'Full Name *' },
+  phoneRequired: { ar: 'رقم الهاتف للتواصل واتساب *', en: 'Contact Phone Number *' },
+  cityAndAddressRequired: { ar: 'المدينة والعنوان بالتفصيل *', en: 'City & Detailed Address *' },
+  googleMapsLocation: { ar: 'موقع خرائط جوجل (رابط أو إحداثيات GPS) *', en: 'Google Maps Location Link *' },
+  getCurrentLocation: { ar: 'تحديد موقعي الحالي من GPS', en: 'Auto-detect My GPS Location' },
+  paymentMethod: { ar: 'طريقة الدفع المطلوبة *', en: 'Payment Method *' },
+  paymentCod: { ar: 'الدفع عند الاستلام (Cash on Delivery)', en: 'Cash on Delivery (COD)' },
+  paymentBank: { ar: 'إيداع / تحويل بنكي عبر الواتساب', en: 'Bank Transfer via WhatsApp' },
+  customerNotes: { ar: 'ملاحظات إضافية أو إهداء (اختياري)', en: 'Special Requests / Gifting (Optional)' },
+  sendOrderWhatsApp: { ar: 'إرسال وتأكيد الطلب عبر واتساب', en: 'Confirm & Send to WhatsApp' },
   copyOrderSummary: { ar: 'نسخ نص الطلب', en: 'Copy Order Text' },
   orderCopied: { ar: 'تم نسخ الطلب بنجاح', en: 'Order text copied!' },
 
   // Footer & Info
   footerTagline: { ar: 'عَبَق — المنصة المعتمدة لتسوق أفخر أصناف العود والبخور والعطور الملكية من أشهر الدور العربية.', en: 'ABAQ — The distinguished hub for authentic agarwood, incense, and haute perfumes.' },
   rightsReserved: { ar: 'جميع الحقوق محفوظة لمنصة عَبَق', en: 'All Rights Reserved. ABAQ Platform' },
-  shippingReturns: { ar: 'الشحن والاسترجاع', en: 'Shipping & Returns' },
+  shippingReturns: { ar: 'الشحن والتوصيل', en: 'Shipping & Delivery' },
   privacyPolicy: { ar: 'سياسة الخصوصية', en: 'Privacy Policy' },
   termsConditions: { ar: 'الشروط والأحكام', en: 'Terms & Conditions' },
   contactUs: { ar: 'خدمة العملاء والواتساب', en: 'Concierge & WhatsApp' },
-  demoNotice: { ar: 'وضع العرض التجريبي — الأسعار والمنتجات نموذجية للعرض', en: 'Demo Catalog Mode — Illustrative seed inventory' },
+  specialOffers: { ar: 'العروض الخاصة والتخفيضات', en: 'Special Offers & Promotions' },
 };
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
+  currency: Currency;
+  setCurrency: (curr: Currency) => void;
   t: (key: keyof typeof DICTIONARY) => string;
   isRTL: boolean;
   formatCurrency: (amount: number) => string;
@@ -108,20 +117,37 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   });
 
+  const [currency, setCurrencyState] = useState<Currency>(() => {
+    try {
+      const saved = localStorage.getItem('abaq_currency');
+      return (saved === 'YER' || saved === 'SAR') ? (saved as Currency) : 'SAR';
+    } catch {
+      return 'SAR';
+    }
+  });
+
   const isRTL = language === 'ar';
 
   useEffect(() => {
     try {
       localStorage.setItem('abaq_lang', language);
-    } catch {
-      // ignore
-    }
+    } catch {}
     document.documentElement.lang = language;
     document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
   }, [language, isRTL]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('abaq_currency', currency);
+    } catch {}
+  }, [currency]);
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
+  };
+
+  const setCurrency = (curr: Currency) => {
+    setCurrencyState(curr);
   };
 
   const t = (key: keyof typeof DICTIONARY): string => {
@@ -135,11 +161,14 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       maximumFractionDigits: 0,
     }).format(amount);
 
+    if (currency === 'YER') {
+      return language === 'ar' ? `${formatted} ر.ي` : `${formatted} YER`;
+    }
     return language === 'ar' ? `${formatted} ر.س` : `${formatted} SAR`;
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, isRTL, formatCurrency }}>
+    <LanguageContext.Provider value={{ language, setLanguage, currency, setCurrency, t, isRTL, formatCurrency }}>
       {children}
     </LanguageContext.Provider>
   );

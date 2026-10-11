@@ -1,13 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CartItem, Product, ProductVariant, CartVerificationResult } from '../types';
+import { CartItem, Product, ProductVariant, CartVerificationResult, CustomerDeliveryDetails } from '../types';
 import { verifyCartWithServer } from '../services/catalogService';
-
-interface CustomerDetails {
-  name?: string;
-  phone?: string;
-  city?: string;
-  notes?: string;
-}
 
 interface CartContextType {
   items: CartItem[];
@@ -23,9 +16,15 @@ interface CartContextType {
   verificationResult: CartVerificationResult | null;
   verifyCart: () => Promise<CartVerificationResult | null>;
   generateWhatsAppLink: (
-    details?: CustomerDetails,
+    details: CustomerDeliveryDetails,
+    currencySymbol: string,
     language?: 'ar' | 'en'
   ) => { url: string; message: string } | null;
+  confirmOrderAndDispatch: (
+    details: CustomerDeliveryDetails,
+    currencySymbol: string,
+    language?: 'ar' | 'en'
+  ) => boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -83,7 +82,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ];
     });
 
-    // Reset old verification status so it re-verifies with live catalog on checkout
     setVerificationResult(null);
     setIsCartOpen(true);
   };
@@ -113,6 +111,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearCart = () => {
     setItems([]);
     setVerificationResult(null);
+    try {
+      localStorage.removeItem('abaq_cart');
+    } catch {}
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -128,7 +129,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await verifyCartWithServer(items);
       setVerificationResult(result);
 
-      // If prices changed on server, update client snapshot prices
       if (result.hasPriceDiscrepancy) {
         setItems(prev =>
           prev.map(item => {
@@ -162,13 +162,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const generateWhatsAppLink = (
-    details?: CustomerDetails,
+    details: CustomerDeliveryDetails,
+    currencySymbol: string,
     lang: 'ar' | 'en' = 'ar'
   ) => {
     if (items.length === 0) return null;
 
     const targetPhone = verificationResult?.storeWhatsApp || '+967718488431';
-    // Clean phone number: remove '+' and non-digits
     const cleanPhone = targetPhone.replace(/[^0-9]/g, '');
 
     const isAr = lang === 'ar';
@@ -176,9 +176,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let message = '';
 
+    const paymentLabel = details.paymentMethod === 'cod'
+      ? (isAr ? 'الدفع عند الاستلام (COD)' : 'Cash on Delivery (COD)')
+      : (isAr ? 'إيداع / تحويل بنكي عبر الواتساب' : 'Bank Transfer via WhatsApp');
+
     if (isAr) {
       message += `السلام عليكم ورحمة الله وبركاته،\n`;
       message += `أود تأكيد طلب العطور التالي من متجر *عَبَق للأطياب والبخور | ABAQ*:\n\n`;
+      
+      message += `📍 *بيانات المستلم والتوصيل (مؤكدة):*\n`;
+      message += `• *الاسم بالكامل:* ${details.fullName}\n`;
+      message += `• *رقم الهاتف للتواصل:* ${details.phone}\n`;
+      message += `• *المدينة والعنوان:* ${details.cityAndAddress}\n`;
+      if (details.googleMapsUrl) {
+        message += `• *موقع خرائط جوجل (Google Maps):* ${details.googleMapsUrl}\n`;
+      }
+      message += `• *طريقة الدفع المحددة:* ${paymentLabel}\n`;
+      if (details.notes) {
+        message += `• *ملاحظات خاصة:* ${details.notes}\n`;
+      }
+      message += `\n`;
+
       message += `📋 *قائمة المقتنيات:*\n`;
 
       items.forEach((item, index) => {
@@ -195,26 +213,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (variantText) message += `   • الحجم / الخيار: ${variantText}\n`;
         message += `   • رمز المنتج SKU: ${item.selectedVariant?.sku || item.product.sku}\n`;
         message += `   • الكمية: ${item.quantity}\n`;
-        message += `   • السعر الإفرادي: ${unitPrice.toLocaleString('ar-SA')} ر.س\n`;
-        message += `   • الإجمالي: ${lineTotal.toLocaleString('ar-SA')} ر.س\n\n`;
+        message += `   • السعر الإفرادي: ${unitPrice.toLocaleString('ar-SA')} ${currencySymbol}\n`;
+        message += `   • الإجمالي: ${lineTotal.toLocaleString('ar-SA')} ${currencySymbol}\n\n`;
       });
 
       const totalAmount = verificationResult ? verificationResult.subtotalSar : subtotal;
-      message += `💰 *المجموع الإجمالي المطلوب:* ${totalAmount.toLocaleString('ar-SA')} ر.س\n\n`;
-
-      if (details?.name || details?.city || details?.notes) {
-        message += `📍 *بيانات الاستلام (مقدمة اختيارياً):*\n`;
-        if (details.name) message += `• الاسم: ${details.name}\n`;
-        if (details.phone) message += `• الهاتف: ${details.phone}\n`;
-        if (details.city) message += `• المدينة / العنوان: ${details.city}\n`;
-        if (details.notes) message += `• ملاحظات إضافية: ${details.notes}\n`;
-        message += `\n`;
-      }
-
-      message += `أرجو تأكيد توفر الأصناف وإفادتي بطريقة التسليم وسرعة الشحن. شكراً لكم!`;
+      message += `💰 *المجموع الإجمالي المطلوب:* ${totalAmount.toLocaleString('ar-SA')} ${currencySymbol}\n\n`;
+      message += `أرجو تأكيد استلام الطلب وتزويدي ببيانات الشحن / التحويل. شكراً لكم!`;
     } else {
-      message += `Hello, I would like to place an inquiry / order with *ABAQ Fine Fragrances*:\n\n`;
-      message += `📋 *Selected Fragrances:*\n`;
+      message += `Hello, I would like to confirm my fragrance order with *ABAQ Fine Fragrances*:\n\n`;
+      
+      message += `📍 *Delivery & Contact Details:*\n`;
+      message += `• *Full Name:* ${details.fullName}\n`;
+      message += `• *Phone Number:* ${details.phone}\n`;
+      message += `• *Address:* ${details.cityAndAddress}\n`;
+      if (details.googleMapsUrl) {
+        message += `• *Google Maps Location:* ${details.googleMapsUrl}\n`;
+      }
+      message += `• *Payment Method:* ${paymentLabel}\n`;
+      if (details.notes) {
+        message += `• *Special Notes:* ${details.notes}\n`;
+      }
+      message += `\n`;
+
+      message += `📋 *Selected Items:*\n`;
 
       items.forEach((item, index) => {
         const verified = verifiedItems?.find(
@@ -230,29 +252,42 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (variantText) message += `   • Option: ${variantText}\n`;
         message += `   • SKU: ${item.selectedVariant?.sku || item.product.sku}\n`;
         message += `   • Qty: ${item.quantity}\n`;
-        message += `   • Unit Price: ${unitPrice.toLocaleString('en-US')} SAR\n`;
-        message += `   • Line Total: ${lineTotal.toLocaleString('en-US')} SAR\n\n`;
+        message += `   • Unit Price: ${unitPrice.toLocaleString('en-US')} ${currencySymbol}\n`;
+        message += `   • Line Total: ${lineTotal.toLocaleString('en-US')} ${currencySymbol}\n\n`;
       });
 
       const totalAmount = verificationResult ? verificationResult.subtotalSar : subtotal;
-      message += `💰 *Total Estimated Amount:* ${totalAmount.toLocaleString('en-US')} SAR\n\n`;
-
-      if (details?.name || details?.city || details?.notes) {
-        message += `📍 *Customer Details (Voluntary):*\n`;
-        if (details.name) message += `• Name: ${details.name}\n`;
-        if (details.phone) message += `• Contact: ${details.phone}\n`;
-        if (details.city) message += `• City / Address: ${details.city}\n`;
-        if (details.notes) message += `• Notes: ${details.notes}\n`;
-        message += `\n`;
-      }
-
-      message += `Please confirm item availability and dispatch timeline. Thank you!`;
+      message += `💰 *Total Amount:* ${totalAmount.toLocaleString('en-US')} ${currencySymbol}\n\n`;
+      message += `Please confirm order receipt and dispatch / payment details. Thank you!`;
     }
 
     const encoded = encodeURIComponent(message);
     const url = `https://wa.me/${cleanPhone}?text=${encoded}`;
 
     return { url, message };
+  };
+
+  const confirmOrderAndDispatch = (
+    details: CustomerDeliveryDetails,
+    currencySymbol: string,
+    lang: 'ar' | 'en' = 'ar'
+  ): boolean => {
+    const link = generateWhatsAppLink(details, currencySymbol, lang);
+    if (!link) return false;
+
+    // Trigger anchor navigation safely in iframes
+    const a = document.createElement('a');
+    a.href = link.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Automatically empty the cart after order confirmation per user requirement
+    clearCart();
+    setIsCartOpen(false);
+    return true;
   };
 
   return (
@@ -271,6 +306,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         verificationResult,
         verifyCart,
         generateWhatsAppLink,
+        confirmOrderAndDispatch,
       }}
     >
       {children}

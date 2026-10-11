@@ -1,16 +1,15 @@
 import React from 'react';
-import { ShoppingBag, Globe, Shield, Sparkles } from 'lucide-react';
+import { ShoppingBag, Globe } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 
 interface HeaderProps {
   currentTab: string;
   setCurrentTab: (tab: string) => void;
-  onOpenAdmin: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentTab, setCurrentTab, onOpenAdmin }) => {
-  const { language, setLanguage, t, isRTL } = useLanguage();
+export const Header: React.FC<HeaderProps> = ({ currentTab, setCurrentTab }) => {
+  const { language, setLanguage, t } = useLanguage();
   const { totalItems, setIsCartOpen } = useCart();
 
   const toggleLanguage = () => {
@@ -79,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, setCurrentTab, onOpe
           </button>
         </nav>
 
-        {/* Zone 3: Primary Action & Utilities */}
+        {/* Zone 3: Primary Action & Utilities (Admin Shield Hidden, accessible only via Ctrl+M) */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Language Switcher */}
           <button
@@ -89,16 +88,6 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, setCurrentTab, onOpe
           >
             <Globe className="w-3.5 h-3.5 text-[#8B5E3C]" />
             <span>{language === 'ar' ? 'English' : 'العربية'}</span>
-          </button>
-
-          {/* Admin Access Shield */}
-          <button
-            onClick={onOpenAdmin}
-            className="p-2 text-[#8B5E3C] hover:text-[#3A2419] hover:bg-[#E6D8C3]/50 rounded-md transition-colors"
-            title={t('navAdmin')}
-            aria-label="Admin Dashboard"
-          >
-            <Shield className="w-4 h-4" />
           </button>
 
           {/* Cart Trigger */}

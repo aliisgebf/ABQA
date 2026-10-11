@@ -13,10 +13,10 @@ import { InfoPagesModal, InfoPageSlug } from './components/InfoPagesModal';
 import { Footer } from './components/Footer';
 import { Product, Brand, Category, StoreSettings } from './types';
 import { fetchCatalog, fetchStoreConfig } from './services/catalogService';
-import { Search, Filter, SlidersHorizontal, ArrowLeft, ArrowRight, Sparkles, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, ArrowLeft, ArrowRight, Sparkles, ChevronLeft, ChevronRight, X, Percent } from 'lucide-react';
 
 function MainApp() {
-  const { language, t, isRTL, formatCurrency } = useLanguage();
+  const { language, t, isRTL, formatCurrency, setCurrency } = useLanguage();
   const [, startTransition] = useTransition();
 
   // Navigation tab state
@@ -58,6 +58,18 @@ function MainApp() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [infoPageSlug, setInfoPageSlug] = useState<InfoPageSlug | null>(null);
 
+  // Admin modal shortcut listener (Ctrl+M or Cmd+M)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setIsAdminOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -75,6 +87,9 @@ function MainApp() {
       if (config) {
         setSettings(config.settings);
         setIsSupabaseConnected(config.isSupabaseConnected);
+        if (config.settings?.default_currency) {
+          setCurrency(config.settings.default_currency);
+        }
       }
 
       const catalogData = await fetchCatalog({
@@ -128,8 +143,43 @@ function MainApp() {
   const activeFiltersCount =
     (debouncedQuery ? 1 : 0) + (selectedBrandSlug ? 1 : 0) + (selectedCategorySlug ? 1 : 0);
 
+  const activeOffers = (settings.offers || []).filter((o) => o.is_active);
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F2E9] text-[#3A2419]">
+      {/* Top Promotional Announcement Bar from Admin Dashboard */}
+      {activeOffers.length > 0 && (
+        <aside aria-label="العروض الترويجية" className="bg-[#3A2419] text-[#F7F2E9] py-2.5 px-4 border-b border-[#B8906A]/30 text-xs transition-colors shadow-xs">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5 truncate">
+              <Sparkles className="w-3.5 h-3.5 text-[#B8906A] shrink-0" />
+              {activeOffers[0].discount_tag && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#B8906A] text-[#3A2419] shrink-0">
+                  {activeOffers[0].discount_tag}
+                </span>
+              )}
+              <span className="font-bold truncate text-xs sm:text-sm">
+                {language === 'ar' ? activeOffers[0].title_ar : (activeOffers[0].title_en || activeOffers[0].title_ar)}
+              </span>
+              {activeOffers[0].subtitle_ar && (
+                <span className="hidden md:inline text-[#E6D8C3]/80 text-xs truncate">
+                  — {language === 'ar' ? activeOffers[0].subtitle_ar : (activeOffers[0].subtitle_en || activeOffers[0].subtitle_ar)}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setCurrentTab('catalog');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="text-xs font-semibold text-[#DFC7AC] hover:text-white shrink-0 underline"
+            >
+              {language === 'ar' ? 'تصفح العرض' : 'Shop Offer'}
+            </button>
+          </div>
+        </aside>
+      )}
+
       {/* Top Header */}
       <Header
         currentTab={currentTab}
@@ -139,7 +189,6 @@ function MainApp() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           });
         }}
-        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       {/* Main Page Area */}
@@ -160,6 +209,55 @@ function MainApp() {
               }}
             />
 
+            {/* Admin Active Offers Showcase Strip */}
+            {activeOffers.length > 0 && (
+              <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4 text-start">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#8B5E3C] uppercase tracking-wider">
+                  <Percent className="w-4 h-4 text-[#B8906A]" />
+                  <span>{language === 'ar' ? 'العروض والتخفيضات الخاصة' : 'Special Offers & Promotions'}</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeOffers.map((offer) => (
+                    <div
+                      key={offer.id}
+                      style={{ backgroundColor: offer.banner_bg_color || '#3A2419' }}
+                      className="p-6 rounded-2xl text-white shadow-md relative overflow-hidden flex flex-col justify-between"
+                    >
+                      <div className="space-y-2 relative z-10">
+                        <div className="flex items-center gap-2">
+                          {offer.discount_tag && (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 backdrop-blur-xs text-white">
+                              {offer.discount_tag}
+                            </span>
+                          )}
+                          <span className="text-[11px] tracking-wider uppercase opacity-80">عَبَق حصرياً</span>
+                        </div>
+                        <h3 className="font-wordmark text-2xl font-bold">
+                          {language === 'ar' ? offer.title_ar : (offer.title_en || offer.title_ar)}
+                        </h3>
+                        {offer.subtitle_ar && (
+                          <p className="text-xs text-white/85 max-w-md">
+                            {language === 'ar' ? offer.subtitle_ar : (offer.subtitle_en || offer.subtitle_ar)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="pt-5 relative z-10">
+                        <button
+                          onClick={() => {
+                            setCurrentTab('catalog');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="px-4 py-2 rounded-lg bg-white text-[#3A2419] font-bold text-xs hover:bg-[#F7F2E9] transition-colors"
+                        >
+                          {language === 'ar' ? 'تصفح عطور العرض' : 'Explore Offer'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Independent Brand Houses Showcase Strip */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="p-6 rounded-2xl bg-[#E6D8C3]/30 border border-[#E6D8C3] space-y-4">
@@ -174,32 +272,42 @@ function MainApp() {
                         : 'ABAQ is a unified platform curating the most esteemed independent houses'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setCurrentTab('brands')}
-                    className="text-xs font-semibold text-[#8B5E3C] hover:text-[#3A2419] flex items-center gap-1 self-start sm:self-auto"
-                  >
-                    <span>{language === 'ar' ? 'دليل الدور بالكامل' : 'View All Houses'}</span>
-                    {isRTL ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                  </button>
+                  {brands.length > 0 && (
+                    <button
+                      onClick={() => setCurrentTab('brands')}
+                      className="text-xs font-semibold text-[#8B5E3C] hover:text-[#3A2419] flex items-center gap-1 self-start sm:self-auto"
+                    >
+                      <span>{language === 'ar' ? 'دليل الدور بالكامل' : 'View All Houses'}</span>
+                      {isRTL ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
                 </div>
 
                 {/* Brands Ribbon */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-2">
-                  {brands.slice(0, 5).map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => handleBrandSelect(b.slug)}
-                      className="p-3 rounded-xl bg-[#F7F2E9] border border-[#E6D8C3] hover:border-[#B8906A] transition-all text-center group"
-                    >
-                      <span className="font-wordmark text-sm font-bold text-[#3A2419] group-hover:text-[#8B5E3C] block truncate">
-                        {language === 'ar' ? b.name_ar : b.name_en}
-                      </span>
-                      <span className="text-[10px] text-[#8B5E3C]/70 block truncate mt-0.5">
-                        {b.country_of_origin}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                {brands.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-2">
+                    {brands.slice(0, 5).map((b) => (
+                      <button
+                        key={b.id}
+                        onClick={() => handleBrandSelect(b.slug)}
+                        className="p-3 rounded-xl bg-[#F7F2E9] border border-[#E6D8C3] hover:border-[#B8906A] transition-all text-center group"
+                      >
+                        <span className="font-wordmark text-sm font-bold text-[#3A2419] group-hover:text-[#8B5E3C] block truncate">
+                          {language === 'ar' ? b.name_ar : b.name_en}
+                        </span>
+                        <span className="text-[10px] text-[#8B5E3C]/70 block truncate mt-0.5">
+                          {b.country_of_origin}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-[#F7F2E9] border border-[#E6D8C3] text-start text-xs text-[#8B5E3C]">
+                    {language === 'ar'
+                      ? 'يمكن للمشرف إضافة دور العطور والعلامات التجارية الشريكة بالضغط على اختصار (Ctrl+M).'
+                      : 'Store manager can add fragrance houses and brands by pressing (Ctrl+M).'}
+                  </div>
+                )}
               </div>
             </section>
 
@@ -215,29 +323,44 @@ function MainApp() {
                     {language === 'ar' ? 'نفائس العود والعطور المختارة' : 'Featured Royal Selections'}
                   </h2>
                 </div>
-                <button
-                  onClick={() => {
-                    setCurrentTab('catalog');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="text-xs font-semibold text-[#8B5E3C] hover:text-[#3A2419] flex items-center gap-1.5"
-                >
-                  <span>{language === 'ar' ? 'تصفح كافة المعروضات' : 'View Full Catalog'}</span>
-                  {isRTL ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                </button>
+                {products.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setCurrentTab('catalog');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="text-xs font-semibold text-[#8B5E3C] hover:text-[#3A2419] flex items-center gap-1.5"
+                  >
+                    <span>{language === 'ar' ? 'تصفح كافة المعروضات' : 'View Full Catalog'}</span>
+                    {isRTL ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                  </button>
+                )}
               </div>
 
               {/* 3 or 4-column Luxury Product Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {products.slice(0, 8).map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onSelect={(p) => setSelectedProduct(p)}
-                    onBrandClick={(slug) => handleBrandSelect(slug)}
-                  />
-                ))}
-              </div>
+              {products.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {products.slice(0, 8).map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onSelect={(p) => setSelectedProduct(p)}
+                      onBrandClick={(slug) => handleBrandSelect(slug)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="p-10 text-center bg-white rounded-2xl border border-[#E6D8C3] space-y-2">
+                  <p className="font-wordmark text-base font-bold text-[#3A2419]">
+                    {language === 'ar' ? 'المتجر مهيأ بالكامل لاستقبال عطوركم' : 'The store is ready for catalog additions'}
+                  </p>
+                  <p className="text-xs text-[#8B5E3C]">
+                    {language === 'ar'
+                      ? 'يمكن للمشرف الضغط على (Ctrl+M) في أي وقت للدخول بكلمة السر abaq2010 وإضافة المنتجات والعروض.'
+                      : 'Press (Ctrl+M) to log in with abaq2010 and add products and offers.'}
+                  </p>
+                </div>
+              )}
             </section>
 
             {/* Olfactory Families Feature Cards */}
@@ -562,7 +685,7 @@ function MainApp() {
       {/* Footer */}
       <Footer
         onOpenPage={(slug) => setInfoPageSlug(slug)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        settings={settings}
       />
     </div>
   );

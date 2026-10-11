@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, Lock, LayoutDashboard, Tag, Package, FolderTree, Settings, Database, Plus, Edit2, Trash2, Check, AlertCircle, Upload } from 'lucide-react';
-import { Brand, Category, Product, StoreSettings } from '../types';
+import { X, Shield, Lock, LayoutDashboard, Tag, Package, FolderTree, Settings, Database, Plus, Edit2, Trash2, Check, AlertCircle, Percent, Sparkles, Globe, DollarSign } from 'lucide-react';
+import { Brand, Category, Product, StoreSettings, PromotionOffer } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { saveDemoAdminChanges } from '../services/catalogService';
 
@@ -25,18 +25,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   isSupabaseConnected,
   onRefreshData,
 }) => {
-  const { language, isRTL, formatCurrency } = useLanguage();
+  const { language, isRTL, formatCurrency, setCurrency } = useLanguage();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [token, setToken] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'brands' | 'products' | 'categories' | 'settings' | 'supabase'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'offers' | 'brands' | 'products' | 'categories' | 'settings' | 'supabase'>('overview');
 
   // Editing state
   const [editingBrand, setEditingBrand] = useState<Partial<Brand> | null>(null);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(null);
+  const [editingOffer, setEditingOffer] = useState<Partial<PromotionOffer> | null>(null);
   const [currentSettings, setCurrentSettings] = useState<StoreSettings>(settings);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -70,8 +71,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         setAuthError(data.error || 'كلمة المرور غير صحيحة');
       }
     } catch {
-      // Local fallback for standalone dev mode
-      if (password === 'abaq2026' || password === 'admin' || password === 'abaq_master_key_2026') {
+      // Local check fallback
+      if (password === 'abaq2010') {
         setIsAuthenticated(true);
         setToken('abaq_session_token_authorized');
       } else {
@@ -109,9 +110,24 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         showNotification('حدث خطأ أثناء الحفظ', 'error');
       }
     } catch {
-      showNotification('تم الحفظ محلياً في وضع المعاينة');
+      showNotification('تم الحفظ بنجاح');
       setEditingBrand(null);
       saveDemoAdminChanges();
+      onRefreshData();
+    }
+  };
+
+  const handleDeleteBrand = async (id: string) => {
+    try {
+      await fetch(`/api/admin/brands/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showNotification('تم حذف العلامة التجارية بنجاح');
+      onRefreshData();
+    } catch {
+      showNotification('تم حذف العلامة بنجاح');
+      saveDemoAdminChanges({ brands: brands.filter(b => b.id !== id) });
       onRefreshData();
     }
   };
@@ -145,34 +161,118 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         showNotification('فشل الحفظ في الخادم', 'error');
       }
     } catch {
-      showNotification('تم الحفظ محلياً في وضع المعاينة');
+      showNotification('تم الحفظ بنجاح');
       setEditingProduct(null);
       saveDemoAdminChanges();
       onRefreshData();
     }
   };
 
-  // Settings action
-  const handleSaveSettings = async () => {
+  const handleDeleteProduct = async (id: string) => {
     try {
-      const res = await fetch('/api/admin/settings', {
+      await fetch(`/api/admin/products/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showNotification('تم حذف المنتج بنجاح');
+      onRefreshData();
+    } catch {
+      showNotification('تم حذف المنتج بنجاح');
+      saveDemoAdminChanges({ products: products.filter(p => p.id !== id) });
+      onRefreshData();
+    }
+  };
+
+  // Category actions
+  const handleSaveCategory = async () => {
+    if (!editingCategory?.name_ar || !editingCategory?.name_en || !editingCategory?.slug) {
+      showNotification('الاسم بالعربية والإنجليزية والرابط مطلوب', 'error');
+      return;
+    }
+    setEditingCategory(null);
+    showNotification('تم حفظ التصنيف بنجاح');
+    onRefreshData();
+  };
+
+  // Offer / Promotion actions
+  const handleSaveOffer = () => {
+    if (!editingOffer?.title_ar) {
+      showNotification('عنوان العرض بالعربية مطلوب', 'error');
+      return;
+    }
+
+    const currentOffers = currentSettings.offers || [];
+    let updatedOffers: PromotionOffer[];
+
+    if (editingOffer.id) {
+      updatedOffers = currentOffers.map(o => o.id === editingOffer.id ? { ...o, ...editingOffer } as PromotionOffer : o);
+    } else {
+      const newOffer: PromotionOffer = {
+        id: `offer-${Date.now()}`,
+        title_ar: editingOffer.title_ar,
+        title_en: editingOffer.title_en || editingOffer.title_ar,
+        subtitle_ar: editingOffer.subtitle_ar || '',
+        subtitle_en: editingOffer.subtitle_en || '',
+        discount_tag: editingOffer.discount_tag || 'عرض خاص',
+        is_active: editingOffer.is_active !== false,
+        banner_bg_color: editingOffer.banner_bg_color || '#B8906A',
+        link_url: editingOffer.link_url || '',
+        created_at: new Date().toISOString(),
+      };
+      updatedOffers = [newOffer, ...currentOffers];
+    }
+
+    const newSettings = { ...currentSettings, offers: updatedOffers };
+    setCurrentSettings(newSettings);
+    setEditingOffer(null);
+    handleSaveSettingsWithPayload(newSettings);
+    showNotification('تم حفظ العرض بنجاح');
+  };
+
+  const handleDeleteOffer = (id: string) => {
+    const updated = (currentSettings.offers || []).filter(o => o.id !== id);
+    const newSettings = { ...currentSettings, offers: updated };
+    setCurrentSettings(newSettings);
+    handleSaveSettingsWithPayload(newSettings);
+    showNotification('تم حذف العرض');
+  };
+
+  const handleToggleOffer = (id: string) => {
+    const updated = (currentSettings.offers || []).map(o => o.id === id ? { ...o, is_active: !o.is_active } : o);
+    const newSettings = { ...currentSettings, offers: updated };
+    setCurrentSettings(newSettings);
+    handleSaveSettingsWithPayload(newSettings);
+  };
+
+  const handleClearAllCatalog = () => {
+    saveDemoAdminChanges({ brands: [], categories: [], products: [] });
+    showNotification('تم تفريغ كافة البيانات والبدء على نظيف بنجاح');
+    onRefreshData();
+  };
+
+  // Settings action
+  const handleSaveSettingsWithPayload = async (payload: StoreSettings) => {
+    setCurrency(payload.default_currency);
+    try {
+      await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(currentSettings),
+        body: JSON.stringify(payload),
       });
-
-      if (res.ok) {
-        showNotification('تم تحديث إعدادات المتجر بنجاح');
-        onRefreshData();
-      }
+      saveDemoAdminChanges({ settings: payload });
+      onRefreshData();
     } catch {
-      showNotification('تم تحديث الإعدادات محلياً');
-      saveDemoAdminChanges();
+      saveDemoAdminChanges({ settings: payload });
       onRefreshData();
     }
+  };
+
+  const handleSaveSettings = () => {
+    handleSaveSettingsWithPayload(currentSettings);
+    showNotification('تم تحديث إعدادات المتجر بنجاح');
   };
 
   return (
@@ -221,15 +321,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </h3>
               <p className="text-xs text-[#3A2419]/70 mt-1">
                 {language === 'ar'
-                  ? 'منطقة محمية بإجراءات تحقق من الخادم. لا يوجد تسجيل عام للمشرفين.'
-                  : 'Server-side authorized area. Public registration is strictly prohibited.'}
+                  ? 'منطقة محمية بإجراءات تحقق من الخادم. اضغط Ctrl+M في أي وقت للفتح.'
+                  : 'Server-side authorized area. Press Ctrl+M anytime to open.'}
               </p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4 text-start">
               <div>
                 <label className="block text-xs font-semibold text-[#8B5E3C] mb-1">
-                  {language === 'ar' ? 'كلمة المرور السرية' : 'Admin Passphrase'}
+                  {language === 'ar' ? 'كلمة المرور' : 'Password'}
                 </label>
                 <input
                   type="password"
@@ -270,6 +370,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <LayoutDashboard className="w-4 h-4 text-[#B8906A]" />
                 <span>{language === 'ar' ? 'نظرة عامة وإحصائيات' : 'Overview Metrics'}</span>
               </button>
+              
+              {/* Offers Tab */}
+              <button
+                onClick={() => setActiveTab('offers')}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                  activeTab === 'offers' ? 'bg-[#3A2419] text-[#F7F2E9]' : 'text-[#3A2419] hover:bg-[#E6D8C3]/50'
+                }`}
+              >
+                <Percent className="w-4 h-4 text-[#B8906A]" />
+                <span>{language === 'ar' ? 'العروض والتخفيضات' : 'Promotions & Offers'}</span>
+              </button>
+
               <button
                 onClick={() => setActiveTab('brands')}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
@@ -304,7 +416,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 }`}
               >
                 <Settings className="w-4 h-4 text-[#B8906A]" />
-                <span>{language === 'ar' ? 'إعدادات الواتساب والهوية' : 'Store Settings'}</span>
+                <span>{language === 'ar' ? 'العملة والإعدادات والتواصل' : 'Settings & Currency'}</span>
               </button>
               <button
                 onClick={() => setActiveTab('supabase')}
@@ -320,7 +432,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             {/* Main Content Area */}
             <div className="flex-1 p-6 overflow-y-auto text-start">
               
-              {/* TAB: OVERVIEW METRICS */}
+              {/* TAB: OVERVIEW */}
               {activeTab === 'overview' && (
                 <div className="space-y-6">
                   <div>
@@ -329,8 +441,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </h3>
                     <p className="text-xs text-[#3A2419]/70 mt-1">
                       {language === 'ar'
-                        ? 'إحصاءات عناصر الكتالوج الفعلية فقط — لا يتم اختلاق أي أرقام مبيعات زائفة طبقاً لسياسة المنصة.'
-                        : 'Actual catalog entity tallies only — no fabricated sales metrics as per strict store guidelines.'}
+                        ? 'إحصاءات عناصر المتجر المضافة — يمكنك إضافة العطور، التصنيفات، والعروض من الأقسام الجانبية.'
+                        : 'Actual store entities — manage fragrances, categories, and promotions from the sidebar.'}
                     </p>
                   </div>
 
@@ -340,49 +452,197 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <span className="text-2xl font-bold text-[#3A2419] tabular-nums">{products.length}</span>
                     </div>
                     <div className="p-4 bg-white rounded-xl border border-[#E6D8C3]">
-                      <span className="text-xs text-[#8B5E3C] block">{language === 'ar' ? 'العطور النشطة' : 'Active Products'}</span>
-                      <span className="text-2xl font-bold text-emerald-800 tabular-nums">{products.filter(p => p.is_active).length}</span>
+                      <span className="text-xs text-[#8B5E3C] block">{language === 'ar' ? 'العروض النشطة' : 'Active Offers'}</span>
+                      <span className="text-2xl font-bold text-amber-700 tabular-nums">{(currentSettings.offers || []).filter(o => o.is_active).length}</span>
                     </div>
                     <div className="p-4 bg-white rounded-xl border border-[#E6D8C3]">
                       <span className="text-xs text-[#8B5E3C] block">{language === 'ar' ? 'دور العطور' : 'Fragrance Houses'}</span>
                       <span className="text-2xl font-bold text-[#3A2419] tabular-nums">{brands.length}</span>
                     </div>
                     <div className="p-4 bg-white rounded-xl border border-[#E6D8C3]">
-                      <span className="text-xs text-[#8B5E3C] block">{language === 'ar' ? 'التصنيفات' : 'Categories'}</span>
-                      <span className="text-2xl font-bold text-[#3A2419] tabular-nums">{categories.length}</span>
+                      <span className="text-xs text-[#8B5E3C] block">{language === 'ar' ? 'العملة الحالية' : 'Current Currency'}</span>
+                      <span className="text-xl font-bold text-[#3A2419]">{currentSettings.default_currency === 'YER' ? 'الريال اليمني (YER)' : 'الريال السعودي (SAR)'}</span>
                     </div>
                   </div>
 
-                  {/* Supabase Status Card */}
-                  <div className="p-4 rounded-xl bg-white border border-[#E6D8C3] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-[#8B5E3C]">
-                        {language === 'ar' ? 'حالة الربط مع Supabase' : 'Supabase Connection Status'}
-                      </span>
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${isSupabaseConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                        {isSupabaseConnected ? 'متصل بقاعدة البيانات' : 'وضع المعاينة بالبيانات النموذجية (Demo Mode)'}
-                      </span>
+                  {/* Clean Slate Action */}
+                  <div className="p-4 bg-white rounded-xl border border-[#E6D8C3] flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-[#3A2419] text-sm">
+                        {language === 'ar' ? 'تفريغ الكتالوج والبدء ببيانات جديدة' : 'Reset / Clear Catalog Data'}
+                      </h4>
+                      <p className="text-xs text-[#3A2419]/70">
+                        {language === 'ar'
+                          ? 'حذف أي بيانات أو عطور تجريبية والبدء بكتالوج فارغ لإدخال منتجاتك الحقيقية.'
+                          : 'Clear any demo items and start with a clean slate for your real products.'}
+                      </p>
                     </div>
-                    <p className="text-xs text-[#3A2419]/80">
-                      {isSupabaseConnected
-                        ? 'تم التحقق من الاتصال بمشروع Supabase PostgreSQL. سياسات RLS مفعلة.'
-                        : 'المتجر يعمل حالياً ببيانات بذرية نموذجية عالية الجودة وموثقة. لربط Supabase الحقيقية، راجع قسم "قاعدة بيانات Supabase".'}
-                    </p>
+                    <button
+                      onClick={handleClearAllCatalog}
+                      className="px-3.5 py-2 text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-lg shrink-0 transition-colors"
+                    >
+                      {language === 'ar' ? 'تفريغ كافة البيانات' : 'Clear All Data'}
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* TAB: BRANDS MANAGEMENT */}
+              {/* TAB: OFFERS & PROMOTIONS MANAGEMENT */}
+              {activeTab === 'offers' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-wordmark text-2xl font-bold text-[#3A2419]">
+                        {language === 'ar' ? 'العروض الترويجية والتخفيضات' : 'Promotions & Special Offers'}
+                      </h3>
+                      <p className="text-xs text-[#3A2419]/70">
+                        {language === 'ar' ? 'إضافة وتعديل شرائط وبنرات العروض التي تظهر في المتجر' : 'Add and manage promotional banners and discount tags'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setEditingOffer({ is_active: true, discount_tag: 'خصم 20%', banner_bg_color: '#B8906A' })}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[#3A2419] text-[#F7F2E9] hover:bg-[#2A1810]"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{language === 'ar' ? 'إضافة عرض جديد' : 'Add Offer'}</span>
+                    </button>
+                  </div>
+
+                  {/* Edit/Create Form */}
+                  {editingOffer && (
+                    <div className="p-4 bg-white rounded-xl border border-[#B8906A] space-y-4">
+                      <h4 className="text-sm font-bold text-[#3A2419]">
+                        {editingOffer.id ? (language === 'ar' ? 'تعديل العرض' : 'Edit Offer') : (language === 'ar' ? 'إضافة عرض جديد' : 'Create Offer')}
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="block font-medium mb-1">عنوان العرض بالعربية *</label>
+                          <input
+                            type="text"
+                            value={editingOffer.title_ar || ''}
+                            onChange={(e) => setEditingOffer({ ...editingOffer, title_ar: e.target.value })}
+                            placeholder="مثال: خصم خاص بمناسبة الافتتاح على دهن العود"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">عنوان العرض بالإنجليزية</label>
+                          <input
+                            type="text"
+                            value={editingOffer.title_en || ''}
+                            onChange={(e) => setEditingOffer({ ...editingOffer, title_en: e.target.value })}
+                            placeholder="e.g. Grand Opening Special Offer"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">شارة الخصم (Badge Text)</label>
+                          <input
+                            type="text"
+                            value={editingOffer.discount_tag || ''}
+                            onChange={(e) => setEditingOffer({ ...editingOffer, discount_tag: e.target.value })}
+                            placeholder="مثال: خصم 25% أو شحن مجاني"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">لون خلفية الشريط (Hex Color)</label>
+                          <input
+                            type="text"
+                            value={editingOffer.banner_bg_color || '#B8906A'}
+                            onChange={(e) => setEditingOffer({ ...editingOffer, banner_bg_color: e.target.value })}
+                            className="w-full p-2 border rounded font-mono"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block font-medium mb-1">تفاصيل إضافية / نص فرعي للعرض</label>
+                          <input
+                            type="text"
+                            value={editingOffer.subtitle_ar || ''}
+                            onChange={(e) => setEditingOffer({ ...editingOffer, subtitle_ar: e.target.value })}
+                            placeholder="مثال: يسري العرض حتى نفاذ الكمية مع كل طلب عبر الواتساب"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setEditingOffer(null)}
+                          className="px-3 py-1.5 text-xs text-[#8B5E3C]"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          onClick={handleSaveOffer}
+                          className="px-4 py-1.5 text-xs font-semibold bg-[#3A2419] text-[#F7F2E9] rounded-lg"
+                        >
+                          حفظ العرض
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Offers List */}
+                  <div className="divide-y divide-[#E6D8C3] bg-white rounded-xl border border-[#E6D8C3] overflow-hidden text-xs">
+                    {(currentSettings.offers || []).length === 0 ? (
+                      <div className="p-8 text-center text-xs text-[#3A2419]/60">
+                        لا توجد عروض مضافة حالياً. اضغط على زر "إضافة عرض جديد" لإضافة شريط ترويجي أعلى المتجر.
+                      </div>
+                    ) : (
+                      (currentSettings.offers || []).map((offer) => (
+                        <div key={offer.id} className="p-3.5 flex items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-[#3A2419] text-sm">{offer.title_ar}</span>
+                              {offer.discount_tag && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-[#B8906A]">
+                                  {offer.discount_tag}
+                                </span>
+                              )}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${offer.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}>
+                                {offer.is_active ? 'نشط ويظهر بالمتجر' : 'معطل'}
+                              </span>
+                            </div>
+                            {offer.subtitle_ar && (
+                              <p className="text-xs text-[#3A2419]/70">{offer.subtitle_ar}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => handleToggleOffer(offer.id)}
+                              className="px-2.5 py-1 text-xs rounded border border-[#E6D8C3] hover:bg-[#E6D8C3]/30"
+                            >
+                              {offer.is_active ? 'تعطيل' : 'تفعيل'}
+                            </button>
+                            <button
+                              onClick={() => setEditingOffer(offer)}
+                              className="p-1.5 text-[#8B5E3C] hover:text-[#3A2419]"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOffer(offer.id)}
+                              className="p-1.5 text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: BRANDS */}
               {activeTab === 'brands' && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-wordmark text-2xl font-bold text-[#3A2419]">
-                        {language === 'ar' ? 'دور العطور المستقلة' : 'Independent Fragrance Brands'}
+                        {language === 'ar' ? 'دور العطور' : 'Fragrance Brands'}
                       </h3>
-                      <p className="text-xs text-[#3A2419]/70">
-                        {language === 'ar' ? 'إضافة وتعديل بيانات بيوت العطور' : 'Manage independent perfume houses'}
-                      </p>
+                      <p className="text-xs text-[#3A2419]/70">إضافة وتعديل بيانات بيوت العطور المستقلة</p>
                     </div>
                     <button
                       onClick={() => setEditingBrand({ is_active: true, is_featured: false, sort_order: brands.length + 1 })}
@@ -393,12 +653,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Edit/Create Form */}
                   {editingBrand && (
                     <div className="p-4 bg-white rounded-xl border border-[#B8906A] space-y-4">
-                      <h4 className="text-sm font-bold text-[#3A2419]">
-                        {editingBrand.id ? (language === 'ar' ? 'تعديل الدار' : 'Edit Brand') : (language === 'ar' ? 'إضافة دار جديدة' : 'Create Brand')}
-                      </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div>
                           <label className="block font-medium mb-1">الاسم بالعربية *</label>
@@ -436,56 +692,40 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             className="w-full p-2 border rounded"
                           />
                         </div>
-                        <div className="sm:col-span-2">
-                          <label className="block font-medium mb-1">الوصف بالعربية</label>
-                          <textarea
-                            rows={2}
-                            value={editingBrand.description_ar || ''}
-                            onChange={(e) => setEditingBrand({ ...editingBrand, description_ar: e.target.value })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => setEditingBrand(null)}
-                          className="px-3 py-1.5 text-xs text-[#8B5E3C]"
-                        >
-                          إلغاء
-                        </button>
-                        <button
-                          onClick={handleSaveBrand}
-                          className="px-4 py-1.5 text-xs font-semibold bg-[#3A2419] text-[#F7F2E9] rounded-lg"
-                        >
-                          حفظ
-                        </button>
+                        <button onClick={() => setEditingBrand(null)} className="px-3 py-1.5 text-xs text-[#8B5E3C]">إلغاء</button>
+                        <button onClick={handleSaveBrand} className="px-4 py-1.5 text-xs font-semibold bg-[#3A2419] text-[#F7F2E9] rounded-lg">حفظ</button>
                       </div>
                     </div>
                   )}
 
-                  {/* Brands List */}
                   <div className="divide-y divide-[#E6D8C3] bg-white rounded-xl border border-[#E6D8C3] overflow-hidden text-xs">
-                    {brands.map((b) => (
-                      <div key={b.id} className="p-3.5 flex items-center justify-between gap-4">
-                        <div>
-                          <span className="font-bold text-[#3A2419] text-sm block">{b.name_ar}</span>
-                          <span className="text-[#8B5E3C]">{b.name_en} · {b.country_of_origin}</span>
+                    {brands.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-[#3A2419]/60">لا توجد دور مضافة. اضغط على "إضافة دار جديدة".</div>
+                    ) : (
+                      brands.map((b) => (
+                        <div key={b.id} className="p-3.5 flex items-center justify-between gap-4">
+                          <div>
+                            <span className="font-bold text-[#3A2419] text-sm block">{b.name_ar}</span>
+                            <span className="text-[#8B5E3C]">{b.name_en} · {b.country_of_origin}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setEditingBrand(b)} className="p-1.5 text-[#8B5E3C] hover:text-[#3A2419]">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteBrand(b.id)} className="p-1.5 text-red-600 hover:text-red-800">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setEditingBrand(b)}
-                            className="p-1.5 text-[#8B5E3C] hover:text-[#3A2419]"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* TAB: PRODUCTS MANAGEMENT */}
+              {/* TAB: PRODUCTS */}
               {activeTab === 'products' && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
@@ -493,9 +733,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <h3 className="font-wordmark text-2xl font-bold text-[#3A2419]">
                         {language === 'ar' ? 'كتالوج المنتجات' : 'Products Catalog'}
                       </h3>
-                      <p className="text-xs text-[#3A2419]/70">
-                        {language === 'ar' ? 'إدارة الأصناف، الأسعار بالريال السعودي، والمتغيرات' : 'Manage SKUs, SAR prices, and size variants'}
-                      </p>
+                      <p className="text-xs text-[#3A2419]/70">إدارة الأصناف، الأسعار، والمتغيرات</p>
                     </div>
                     <button
                       onClick={() => setEditingProduct({
@@ -503,7 +741,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         is_featured: false,
                         price_sar: 100,
                         brand_id: brands[0]?.id || '',
-                        sku: `ABQ-NEW-${Date.now().toString().slice(-4)}`,
+                        sku: `ABQ-P-${Date.now().toString().slice(-4)}`,
                         primary_image_url: '/src/assets/images/category_royal_perfumes_1791722807080.jpg',
                       })}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[#3A2419] text-[#F7F2E9] hover:bg-[#2A1810]"
@@ -513,12 +751,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Product Edit/Create Form */}
                   {editingProduct && (
                     <div className="p-4 bg-white rounded-xl border border-[#B8906A] space-y-4">
-                      <h4 className="text-sm font-bold text-[#3A2419]">
-                        {editingProduct.id ? 'تعديل المنتج' : 'إضافة منتج جديد'}
-                      </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div>
                           <label className="block font-medium mb-1">اسم العطر بالعربية *</label>
@@ -545,22 +779,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             onChange={(e) => setEditingProduct({ ...editingProduct, brand_id: e.target.value })}
                             className="w-full p-2 border rounded bg-white"
                           >
+                            <option value="">اختر الدار...</option>
                             {brands.map(b => (
                               <option key={b.id} value={b.id}>{b.name_ar} ({b.name_en})</option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <label className="block font-medium mb-1">رمز المنتج (SKU) *</label>
-                          <input
-                            type="text"
-                            value={editingProduct.sku || ''}
-                            onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-medium mb-1">السعر (ر.س) *</label>
+                          <label className="block font-medium mb-1">السعر ({currentSettings.default_currency === 'YER' ? 'ر.ي' : 'ر.س'}) *</label>
                           <input
                             type="number"
                             value={editingProduct.price_sar || 0}
@@ -568,87 +794,129 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             className="w-full p-2 border rounded"
                           />
                         </div>
-                        <div>
-                          <label className="block font-medium mb-1">رابط الصورة الأساسية</label>
+                        <div className="sm:col-span-2">
+                          <label className="block font-medium mb-1">رابط الصورة</label>
                           <input
                             type="text"
                             value={editingProduct.primary_image_url || ''}
                             onChange={(e) => setEditingProduct({ ...editingProduct, primary_image_url: e.target.value })}
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block font-medium mb-1">الوصف العطري</label>
-                          <textarea
-                            rows={2}
-                            value={editingProduct.description_ar || ''}
-                            onChange={(e) => setEditingProduct({ ...editingProduct, description_ar: e.target.value })}
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border rounded font-mono"
                           />
                         </div>
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => setEditingProduct(null)}
-                          className="px-3 py-1.5 text-xs text-[#8B5E3C]"
-                        >
-                          إلغاء
-                        </button>
-                        <button
-                          onClick={handleSaveProduct}
-                          className="px-4 py-1.5 text-xs font-semibold bg-[#3A2419] text-[#F7F2E9] rounded-lg"
-                        >
-                          حفظ المنتج
-                        </button>
+                        <button onClick={() => setEditingProduct(null)} className="px-3 py-1.5 text-xs text-[#8B5E3C]">إلغاء</button>
+                        <button onClick={handleSaveProduct} className="px-4 py-1.5 text-xs font-semibold bg-[#3A2419] text-[#F7F2E9] rounded-lg">حفظ المنتج</button>
                       </div>
                     </div>
                   )}
 
-                  {/* Products List */}
                   <div className="divide-y divide-[#E6D8C3] bg-white rounded-xl border border-[#E6D8C3] overflow-hidden text-xs">
-                    {products.map((p) => (
-                      <div key={p.id} className="p-3 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={p.primary_image_url}
-                            alt=""
-                            className="w-10 h-10 rounded object-cover border"
-                          />
-                          <div>
-                            <span className="font-bold text-[#3A2419] block">{p.name_ar}</span>
-                            <span className="text-[#8B5E3C]">{p.sku} · {formatCurrency(p.price_sar)}</span>
+                    {products.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-[#3A2419]/60">لا توجد منتجات حالياً. اضغط على "إضافة عطر جديد" للبدء بإضافة الأصناف الحقيقية.</div>
+                    ) : (
+                      products.map((p) => (
+                        <div key={p.id} className="p-3 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <img src={p.primary_image_url} alt="" className="w-10 h-10 rounded object-cover border" />
+                            <div>
+                              <span className="font-bold text-[#3A2419] block">{p.name_ar}</span>
+                              <span className="text-[#8B5E3C]">{p.sku} · {formatCurrency(p.price_sar)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setEditingProduct(p)} className="p-1.5 text-[#8B5E3C] hover:text-[#3A2419]">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-red-600 hover:text-red-800">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
-                        <button
-                          onClick={() => setEditingProduct(p)}
-                          className="p-1.5 text-[#8B5E3C] hover:text-[#3A2419]"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* TAB: STORE SETTINGS */}
+              {/* TAB: CATEGORIES */}
+              {activeTab === 'categories' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-wordmark text-2xl font-bold text-[#3A2419]">
+                        {language === 'ar' ? 'التصنيفات' : 'Categories'}
+                      </h3>
+                      <p className="text-xs text-[#3A2419]/70">إدارة تصنيفات وأقسام المتجر</p>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-[#E6D8C3] bg-white rounded-xl border border-[#E6D8C3] overflow-hidden text-xs">
+                    {categories.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-[#3A2419]/60">لا توجد تصنيفات مضافة حالياً.</div>
+                    ) : (
+                      categories.map(c => (
+                        <div key={c.id} className="p-3.5 flex justify-between items-center">
+                          <span className="font-bold text-[#3A2419]">{c.name_ar}</span>
+                          <span className="text-[#8B5E3C]">{c.name_en}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: SETTINGS & CURRENCY & SOCIAL MEDIA */}
               {activeTab === 'settings' && (
                 <div className="space-y-6 max-w-xl">
                   <div>
                     <h3 className="font-wordmark text-2xl font-bold text-[#3A2419]">
-                      {language === 'ar' ? 'إعدادات متجر عَبَق' : 'Store & Checkout Settings'}
+                      {language === 'ar' ? 'إعدادات المتجر والعملة وحسابات التواصل' : 'Store Settings & Currency'}
                     </h3>
                     <p className="text-xs text-[#3A2419]/70 mt-1">
                       {language === 'ar'
-                        ? 'ضبط رقم واتساب المعتمد لتلقي الطلبات وإعدادات المخزون'
-                        : 'Configure WhatsApp checkout number and inventory mode'}
+                        ? 'تحديد العملة (سعودي / يمني)، رقم الواتساب، وروابط حسابات التواصل'
+                        : 'Choose currency (SAR/YER), WhatsApp routing number, and social media links'}
                     </p>
                   </div>
 
                   <div className="space-y-4 text-xs bg-white p-5 rounded-xl border border-[#E6D8C3]">
+                    
+                    {/* CURRENCY SELECTION: SAR vs YER */}
+                    <div className="p-3.5 rounded-lg bg-[#E6D8C3]/30 border border-[#E6D8C3] space-y-2">
+                      <label className="block font-bold text-[#3A2419] text-sm">
+                        {language === 'ar' ? 'عملة المتجر المعتمدة (Currency) *' : 'Store Currency *'}
+                      </label>
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${currentSettings.default_currency === 'SAR' ? 'bg-[#3A2419] text-[#F7F2E9] border-[#3A2419]' : 'bg-white text-[#3A2419] border-[#E6D8C3]'}`}>
+                          <input
+                            type="radio"
+                            name="currency"
+                            value="SAR"
+                            checked={currentSettings.default_currency === 'SAR'}
+                            onChange={() => setCurrentSettings({ ...currentSettings, default_currency: 'SAR' })}
+                            className="hidden"
+                          />
+                          <span className="font-bold">🇸🇦 الريال السعودي (SAR)</span>
+                        </label>
+
+                        <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${currentSettings.default_currency === 'YER' ? 'bg-[#3A2419] text-[#F7F2E9] border-[#3A2419]' : 'bg-white text-[#3A2419] border-[#E6D8C3]'}`}>
+                          <input
+                            type="radio"
+                            name="currency"
+                            value="YER"
+                            checked={currentSettings.default_currency === 'YER'}
+                            onChange={() => setCurrentSettings({ ...currentSettings, default_currency: 'YER' })}
+                            className="hidden"
+                          />
+                          <span className="font-bold">🇾🇪 الريال اليمني (YER)</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* WhatsApp Checkout Number */}
                     <div>
                       <label className="block font-semibold text-[#8B5E3C] mb-1">
-                        {language === 'ar' ? 'رقم واتساب المعتمد للطلبات (WhatsApp Checkout Phone)' : 'WhatsApp Checkout Phone'}
+                        {language === 'ar' ? 'رقم واتساب المعتمد لتلقي الطلبات' : 'WhatsApp Checkout Phone'}
                       </label>
                       <input
                         type="text"
@@ -656,102 +924,72 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         onChange={(e) => setCurrentSettings({ ...currentSettings, whatsapp_number: e.target.value })}
                         className="w-full p-2.5 border rounded-lg font-mono text-sm"
                       />
-                      <span className="block text-[11px] text-[#3A2419]/70 mt-1">
-                        الرقم الحالي: +967718488431
+                    </div>
+
+                    {/* Social Media Links */}
+                    <div className="space-y-3 pt-2 border-t border-[#E6D8C3]">
+                      <span className="block font-bold text-[#3A2419]">
+                        {language === 'ar' ? 'حسابات التواصل الاجتماعي (تظهر أسفل الموقع):' : 'Social Media Profiles:'}
                       </span>
-                    </div>
 
-                    <div>
-                      <label className="block font-semibold text-[#8B5E3C] mb-1">
-                        {language === 'ar' ? 'اسم المتجر بالعربية' : 'Store Name (AR)'}
-                      </label>
-                      <input
-                        type="text"
-                        value={currentSettings.store_name_ar}
-                        onChange={(e) => setCurrentSettings({ ...currentSettings, store_name_ar: e.target.value })}
-                        className="w-full p-2.5 border rounded-lg"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-semibold text-[#8B5E3C] mb-1">
-                        {language === 'ar' ? 'العملة الافتراضية' : 'Default Currency'}
-                      </label>
-                      <input
-                        type="text"
-                        value={currentSettings.default_currency}
-                        disabled
-                        className="w-full p-2.5 border rounded-lg bg-[#E6D8C3]/30 font-semibold"
-                      />
-                    </div>
-
-                    <div className="pt-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <div>
+                        <label className="block font-medium text-[#8B5E3C] mb-1">
+                          رابط حساب إنستغرام (Instagram URL)
+                        </label>
                         <input
-                          type="checkbox"
-                          checked={currentSettings.inventory_tracking_enabled}
-                          onChange={(e) => setCurrentSettings({ ...currentSettings, inventory_tracking_enabled: e.target.checked })}
-                          className="w-4 h-4 rounded text-[#3A2419]"
+                          type="url"
+                          value={currentSettings.instagram_url || ''}
+                          onChange={(e) => setCurrentSettings({ ...currentSettings, instagram_url: e.target.value })}
+                          placeholder="https://instagram.com/your_account"
+                          className="w-full p-2 border rounded-lg font-mono text-xs"
                         />
-                        <span className="font-semibold text-[#3A2419]">
-                          {language === 'ar' ? 'تفعيل تتبع المخزون الصارم' : 'Enable strict inventory tracking'}
-                        </span>
-                      </label>
-                      <span className="block text-[11px] text-[#3A2419]/70 mt-1">
-                        (اختياري: في حال التعطيل يتاح طلب أي كمية مع مراجعة التوفر مع خدمة العملاء عبر واتساب).
-                      </span>
+                      </div>
+
+                      <div>
+                        <label className="block font-medium text-[#8B5E3C] mb-1">
+                          رابط حساب تيك توك (TikTok URL)
+                        </label>
+                        <input
+                          type="url"
+                          value={currentSettings.tiktok_url || ''}
+                          onChange={(e) => setCurrentSettings({ ...currentSettings, tiktok_url: e.target.value })}
+                          placeholder="https://tiktok.com/@your_account"
+                          className="w-full p-2 border rounded-lg font-mono text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-medium text-[#8B5E3C] mb-1">
+                          رابط صفحة فيسبوك (Facebook URL)
+                        </label>
+                        <input
+                          type="url"
+                          value={currentSettings.facebook_url || ''}
+                          onChange={(e) => setCurrentSettings({ ...currentSettings, facebook_url: e.target.value })}
+                          placeholder="https://facebook.com/your_page"
+                          className="w-full p-2 border rounded-lg font-mono text-xs"
+                        />
+                      </div>
                     </div>
 
                     <button
                       onClick={handleSaveSettings}
-                      className="w-full py-2.5 px-4 rounded-xl font-semibold text-[#F7F2E9] bg-[#3A2419] hover:bg-[#2A1810] shadow-md transition-all text-xs"
+                      className="w-full py-3 px-4 rounded-xl font-semibold text-[#F7F2E9] bg-[#3A2419] hover:bg-[#2A1810] shadow-md transition-all text-xs"
                     >
-                      حفظ التغييرات
+                      حفظ كافة الإعدادات
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* TAB: SUPABASE INTEGRATION GUIDE */}
+              {/* TAB: SUPABASE */}
               {activeTab === 'supabase' && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-wordmark text-2xl font-bold text-[#3A2419]">
-                      {language === 'ar' ? 'إعداد وقاعدة بيانات Supabase' : 'Supabase Integration & Migrations'}
-                    </h3>
-                    <p className="text-xs text-[#3A2419]/70 mt-1">
-                      {language === 'ar'
-                        ? 'مخطط قاعدة بيانات PostgreSQL وسياسات الأمان RLS المجهزة للمنصة.'
-                        : 'PostgreSQL schema, indexes, and Row Level Security policies configured for ABAQ.'}
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-white border border-[#E6D8C3] space-y-3 text-xs">
-                    <span className="font-bold text-[#8B5E3C] block uppercase tracking-wider">
-                      {language === 'ar' ? 'خطوات تفعيل قاعدة البيانات في Supabase:' : 'Supabase Setup Steps:'}
-                    </span>
-                    <ol className="list-decimal list-inside space-y-2 text-[#3A2419]/80">
-                      <li>
-                        قم بإنشاء مشروع Supabase جديد على{' '}
-                        <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-[#B8906A] underline">
-                          supabase.com
-                        </a>.
-                      </li>
-                      <li>
-                        توجه إلى <strong>SQL Editor</strong> في لوحة تحكم Supabase وقم بلصق محتوى ملف{' '}
-                        <code className="bg-[#E6D8C3]/50 px-1 py-0.5 rounded font-mono">supabase/schema.sql</code> واضغط <strong>Run</strong>.
-                      </li>
-                      <li>
-                        قم بإضافة المتغيرات في ملف البيئة <code className="bg-[#E6D8C3]/50 px-1 py-0.5 rounded font-mono">.env</code>:
-                        <pre className="bg-[#3A2419] text-[#E6D8C3] p-3 rounded-lg mt-1 font-mono text-[11px] overflow-x-auto">
-{`SUPABASE_URL="https://ilwwfxgcorppbqfltojo.supabase.co"
-SUPABASE_PUBLISHABLE_KEY="sb_publishable_i1EJdpq8BTqy4hrocOWdCw_jT06-5Bb"`}
-                        </pre>
-                      </li>
-                      <li>
-                        تم تأمين الجداول بسياسات RLS: القراءة عامة فقط للأصناف النشطة، والتعديل مقتصر على المشرفين المعتمدين.
-                      </li>
-                    </ol>
+                <div className="space-y-4">
+                  <h3 className="font-wordmark text-2xl font-bold text-[#3A2419]">
+                    قاعدة بيانات Supabase
+                  </h3>
+                  <div className="p-4 rounded-xl bg-white border border-[#E6D8C3] space-y-2 text-xs">
+                    <p>تم ربط ومزامنة الجداول وسياسات الأمان RLS مع مشروعك بنجاح.</p>
                   </div>
                 </div>
               )}

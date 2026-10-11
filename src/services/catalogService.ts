@@ -1,6 +1,19 @@
 import { Brand, Category, Product, StoreSettings, CartItem, CartVerificationResult } from '../types';
 import { INITIAL_BRANDS, INITIAL_CATEGORIES, INITIAL_PRODUCTS, INITIAL_STORE_SETTINGS } from '../data/seedData';
 
+// Clean any legacy demo items from previous browser runs once
+try {
+  const isCleared = localStorage.getItem('abaq_demo_cleared_v3');
+  if (!isCleared) {
+    localStorage.removeItem('abaq_demo_brands');
+    localStorage.removeItem('abaq_demo_categories');
+    localStorage.removeItem('abaq_demo_products');
+    localStorage.setItem('abaq_demo_cleared_v3', 'true');
+  }
+} catch {
+  // sandbox
+}
+
 // Local cache/store for client-side demo and instant responsiveness
 let localBrands: Brand[] = [...INITIAL_BRANDS];
 let localCategories: Category[] = [...INITIAL_CATEGORIES];
@@ -21,8 +34,18 @@ try {
   // Ignore in SSR/browser sandbox
 }
 
-export function saveDemoAdminChanges() {
+export function saveDemoAdminChanges(data?: {
+  brands?: Brand[];
+  categories?: Category[];
+  products?: Product[];
+  settings?: StoreSettings;
+}) {
   try {
+    if (data?.brands) localBrands = data.brands;
+    if (data?.categories) localCategories = data.categories;
+    if (data?.products) localProducts = data.products;
+    if (data?.settings) localSettings = data.settings;
+
     localStorage.setItem('abaq_demo_brands', JSON.stringify(localBrands));
     localStorage.setItem('abaq_demo_categories', JSON.stringify(localCategories));
     localStorage.setItem('abaq_demo_products', JSON.stringify(localProducts));
@@ -324,7 +347,7 @@ export async function verifyCartWithServer(cartItems: CartItem[]): Promise<CartV
     discrepancies,
     items: verifiedItems,
     subtotalSar,
-    currency: 'SAR',
+    currency: localSettings.default_currency || 'SAR',
     storeWhatsApp: localSettings.whatsapp_number,
   };
 }

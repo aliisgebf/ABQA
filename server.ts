@@ -21,7 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
-const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'abaq_master_key_2026';
+const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'abaq2010';
 
 let supabase: ReturnType<typeof createClient> | null = null;
 if (SUPABASE_URL && (SUPABASE_SECRET_KEY || SUPABASE_PUBLISHABLE_KEY)) {
@@ -299,7 +299,7 @@ app.post('/api/cart/verify', (req: Request, res: Response) => {
     discrepancies,
     items: verifiedItems,
     subtotalSar,
-    currency: 'SAR',
+    currency: inMemorySettings.default_currency || 'SAR',
     storeWhatsApp: inMemorySettings.whatsapp_number,
   });
 });
@@ -315,8 +315,8 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'يرجى إدخال كلمة المرور' });
   }
 
-  // Check password against ADMIN_SECRET_KEY or standard admin key
-  if (password === ADMIN_SECRET_KEY || password === 'abaq2026' || password === 'admin') {
+  // Check password against abaq2010 or ADMIN_SECRET_KEY
+  if (password === 'abaq2010' || password === ADMIN_SECRET_KEY) {
     return res.json({
       success: true,
       token: 'abaq_session_token_authorized',
