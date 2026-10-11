@@ -1,0 +1,6 @@
+{
+  "name": "ABAQ | عَبَق - متجر العطور والبخور الفاخر",
+  "description": "منصة عَبَق لتجارة العطور الشرقية الفاخرة، العود، البخور، والمسك من علامات تجارية متعددة موثوقة مع طلب سريع عبر واتساب.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
