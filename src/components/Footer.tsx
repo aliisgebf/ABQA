@@ -7,9 +7,10 @@ import { StoreSettings } from '../types';
 interface FooterProps {
   onOpenPage: (slug: InfoPageSlug) => void;
   settings?: StoreSettings;
+  onOpenAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenPage, settings }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenPage, settings, onOpenAdmin }) => {
   const { t, language } = useLanguage();
 
   return (
@@ -148,7 +149,15 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPage, settings }) => {
         {/* Bottom Sub-bar */}
         <div className="pt-8 border-t border-[#8B5E3C]/30 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#E6D8C3]/60">
           <p>© {new Date().getFullYear()} {t('rightsReserved')}.</p>
-          <div className="flex items-center gap-2 text-[11px] text-[#B8906A]">
+          <div className="flex items-center gap-4 text-[11px] text-[#B8906A]">
+            {onOpenAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                className="hover:text-white transition-colors underline underline-offset-4 flex items-center gap-1"
+              >
+                <span>{language === 'ar' ? 'لوحة التحكم' : 'Admin Dashboard'}</span>
+              </button>
+            )}
             <span>عَبَق — متجر العطور والعود الأصيل</span>
           </div>
         </div>

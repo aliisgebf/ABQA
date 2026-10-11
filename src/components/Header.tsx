@@ -1,14 +1,15 @@
 import React from 'react';
-import { ShoppingBag, Globe } from 'lucide-react';
+import { ShoppingBag, Globe, LayoutDashboard } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 
 interface HeaderProps {
   currentTab: string;
   setCurrentTab: (tab: string) => void;
+  onOpenAdmin: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentTab, setCurrentTab }) => {
+export const Header: React.FC<HeaderProps> = ({ currentTab, setCurrentTab, onOpenAdmin }) => {
   const { language, setLanguage, t } = useLanguage();
   const { totalItems, setIsCartOpen } = useCart();
 
@@ -78,8 +79,18 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, setCurrentTab }) => 
           </button>
         </nav>
 
-        {/* Zone 3: Primary Action & Utilities (Admin Shield Hidden, accessible only via Ctrl+M) */}
+        {/* Zone 3: Primary Action & Utilities */}
         <div className="flex items-center gap-3 shrink-0">
+          {/* Admin Dashboard Button */}
+          <button
+            onClick={onOpenAdmin}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#8B5E3C] hover:text-[#3A2419] bg-[#E6D8C3]/50 hover:bg-[#E6D8C3] rounded-md transition-colors whitespace-nowrap shrink-0 border border-[#B8906A]/30"
+            title={language === 'ar' ? 'لوحة التحكم والإدارة' : 'Admin Dashboard'}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5 text-[#8B5E3C]" />
+            <span className="hidden sm:inline">{language === 'ar' ? 'لوحة التحكم' : 'Dashboard'}</span>
+          </button>
+
           {/* Language Switcher */}
           <button
             onClick={toggleLanguage}

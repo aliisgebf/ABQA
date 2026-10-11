@@ -189,6 +189,7 @@ function MainApp() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           });
         }}
+        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       {/* Main Page Area */}
@@ -284,7 +285,7 @@ function MainApp() {
                 </div>
 
                 {/* Brands Ribbon */}
-                {brands.length > 0 ? (
+                {brands.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-2">
                     {brands.slice(0, 5).map((b) => (
                       <button
@@ -300,12 +301,6 @@ function MainApp() {
                         </span>
                       </button>
                     ))}
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-xl bg-[#F7F2E9] border border-[#E6D8C3] text-start text-xs text-[#8B5E3C]">
-                    {language === 'ar'
-                      ? 'يمكن للمشرف إضافة دور العطور والعلامات التجارية الشريكة بالضغط على اختصار (Ctrl+M).'
-                      : 'Store manager can add fragrance houses and brands by pressing (Ctrl+M).'}
                   </div>
                 )}
               </div>
@@ -338,7 +333,7 @@ function MainApp() {
               </div>
 
               {/* 3 or 4-column Luxury Product Grid */}
-              {products.length > 0 ? (
+              {products.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {products.slice(0, 8).map((product) => (
                     <ProductCard
@@ -348,17 +343,6 @@ function MainApp() {
                       onBrandClick={(slug) => handleBrandSelect(slug)}
                     />
                   ))}
-                </div>
-              ) : (
-                <div className="p-10 text-center bg-white rounded-2xl border border-[#E6D8C3] space-y-2">
-                  <p className="font-wordmark text-base font-bold text-[#3A2419]">
-                    {language === 'ar' ? 'المتجر مهيأ بالكامل لاستقبال عطوركم' : 'The store is ready for catalog additions'}
-                  </p>
-                  <p className="text-xs text-[#8B5E3C]">
-                    {language === 'ar'
-                      ? 'يمكن للمشرف الضغط على (Ctrl+M) في أي وقت للدخول بكلمة السر abaq2010 وإضافة المنتجات والعروض.'
-                      : 'Press (Ctrl+M) to log in with abaq2010 and add products and offers.'}
-                  </p>
                 </div>
               )}
             </section>
@@ -686,6 +670,7 @@ function MainApp() {
       <Footer
         onOpenPage={(slug) => setInfoPageSlug(slug)}
         settings={settings}
+        onOpenAdmin={() => setIsAdminOpen(true)}
       />
     </div>
   );
